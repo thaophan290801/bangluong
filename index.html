@@ -21,7 +21,8 @@ textarea{width:100%;min-height:90px}label{display:block;margin:8px 0 2px;font-si
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 // ===== CẤU HÌNH: dán thông tin từ Supabase > Project Settings > API =====
-const SUPABASE_URL='https://rpumybmzumilwrqxaccj.supabase.co', SUPABASE_KEY='KHÓA-ANON-CỦA-BẠN';
+const SUPABASE_URL='https://rpumybmzumilwrqxaccj.supabase.co';
+const SUPABASE_KEY='sb_publishable_QT0Y4cvp5rHVBgRFTaRclw_8sbCXEwZ';
 // Tham số tính lương (theo file Excel)
 const CFG={luongCS:2340000,luongVung:4960000,gtBanThan:15500000,gtNPT:6200000,xh:.08,yt:.015,tn:.01,
   heSo:{1:1.5,2:2,3:2.7,4:3,5:2.1,6:3.9}};
@@ -60,6 +61,7 @@ function calc(p,list){
 }
 
 async function boot(){
+ if(SUPABASE_KEY.startsWith('DAN_KHOA')||/[^\x20-\x7E]/.test(SUPABASE_KEY)){$('#app').innerHTML='<div class=c><h3>Chưa cấu hình khóa Supabase</h3><p>Mở index.html, thay DAN_KHOA_ANON_VAO_DAY bằng khóa anon public (chỉ chữ và số, không dấu) rồi lưu lại.</p></div>';return}
  const{data:{session}}=await SB.auth.getSession();if(!session)return login();
  me=(await SB.from('profiles').select('*').eq('id',session.user.id).single()).data;
  emps=me.role=='manager'?(await SB.from('profiles').select('*').order('full_name')).data:[me];cur=emps[0];
