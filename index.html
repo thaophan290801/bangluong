@@ -73,7 +73,7 @@ async function load(){
  D={};(d.data||[]).forEach(r=>D[r.work_date]=r);ADJ=a.data||{amount:0,note:''};render();
 }
 function login(){$('#app').innerHTML=`<div class=c><h2>Đăng nhập</h2><div class=r><input id=em type=email placeholder=Email><input id=pw type=password placeholder="Mật khẩu"><button onclick=signin()>Đăng nhập</button></div></div>`}
-async function signin(){const r=await SB.auth.signInWithPassword({email:$('#em').value,password:$('#pw').value});r.error?alert('Sai email hoặc mật khẩu'):boot()}
+async function signin(){const r=await SB.auth.signInWithPassword({email:$('#em').value,password:$('#pw').value});r.error?alert('Không đăng nhập được: '+r.error.message):boot()}
 async function out(){await SB.auth.signOut();login()}
 
 function render(){
