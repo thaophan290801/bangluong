@@ -98,7 +98,7 @@ function render(){
    const w=D[r.k]||{},on=['worked','changed'].includes(w.status);
    return `<div class=d><div class=r><b>${DN[r.d.getDay()]} ${r.d.getDate()}/${r.d.getMonth()+1}</b><span class=s>${r.tag}</span>
    <select onchange="sd('${r.k}','status',this.value)">${opt([['','—'],['worked','Đúng ca'],['changed','Đổi ca'],['leave','Nghỉ phép'],['off','Nghỉ'],['absent','Vắng']],w.status||'')}</select>
-   ${on?`<select onchange="sd('${r.k}','shift',this.value)">${opt([['','Tự nhập'],...(cur.shifts||[]).map(s=>[s.c,s.c])],w.shift||'')}</select>
+   ${on?`<select onchange="sd('${r.k}','shift',this.value)">${opt([['','Tự nhập'],...(SH(cur)).map(s=>[s.c,s.c])],w.shift||'')}</select>
    <input type=time value="${w.start_t||''}" onchange="sd('${r.k}','start_t',this.value)"><input type=time value="${w.end_t||''}" onchange="sd('${r.k}','end_t',this.value)">`:''}
    <span class=n>${r.pay?fmt(r.pay)+' đ':''}<div class=s>${r.ot}${r.pay?' · lũy kế '+fmt(r.cum):''}</div></span></div></div>`}).join('')+`</div>`;
  }
@@ -114,14 +114,14 @@ function render(){
   <label>Ngày công chuẩn</label><select id=f5>${opt([['26','26 ngày'],['weekdays','Số ngày T2–T6 trong kỳ']],p.std_mode)}</select>
   <label>Kỳ lương</label><select id=f6>${opt([[1,'Từ ngày 1 đến cuối tháng'],[24,'Từ 24 đến 23 tháng sau']],p.period_start_day)}</select>
   ${f('Ngày nghỉ tuần (0=CN, 6=T7, cách nhau dấu phẩy)','f7',(p.weekly_off||[0]).join(','))}
-  <label>Ca (mỗi dòng: Tên 06:30-14:30)</label><textarea id=f8>${(p.shifts||[]).map(s=>`${s.c} ${s.s}-${s.e}`).join('\n')}</textarea><br><button onclick=sp()>Lưu hồ sơ</button></div>`}
+  <label>Ca (mỗi dòng: Tên 06:30-14:30)</label><textarea id=f8>${(SH(p)).map(s=>`${s.c} ${s.s}-${s.e}`).join('\n')}</textarea><br><button onclick=sp()>Lưu hồ sơ</button></div>`}
  if(T=='cfg'&&M)h+=`<div class=c><label>Ngày lễ (mỗi dòng YYYY-MM-DD)</label><textarea id=g1>${[...HOL].sort().join('\n')}</textarea>
   <label>Biểu thuế TNCN (mỗi dòng: "mức_trên_của_bậc %", bậc cuối ghi "max %", ví dụ 10000000 5)</label><textarea id=g2>${BR.map(b=>`${b.upper??'max'} ${b.rate*100}`).join('\n')}</textarea><br><button onclick=sc()>Lưu</button></div>`;
  $('#app').innerHTML=h;if(T=='img')imgs();
 }
 async function sd(k,f,v){
  const w={...(D[k]||{}),[f]:v||null};
- if(f=='shift'){const s=(cur.shifts||[]).find(x=>x.c==v);if(s){w.start_t=s.s;w.end_t=s.e}}
+ if(f=='shift'){const s=(SH(cur)).find(x=>x.c==v);if(s){w.start_t=s.s;w.end_t=s.e}}
  D[k]=w;ck(await SB.from('work_days').upsert({user_id:cur.id,work_date:k,status:w.status,shift:w.shift,start_t:w.start_t,end_t:w.end_t}));render();
 }
 async function sa(){ck(await SB.from('adjustments').upsert({user_id:cur.id,ym,amount:+$('#aa').value,note:$('#an').value}));load()}
@@ -145,19 +145,21 @@ function xl(){
  rows.push({Ngày:'Thực lĩnh kỳ',  'Tổng ngày':Math.round(RS.net)});
  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Luong');XLSX.writeFile(wb,`luong-${cur.full_name}-${ym}.xlsx`);
 }
+const DS=[['A','06:30','14:30'],['B','14:30','22:30'],['C','22:30','06:30'],['D1','06:30','18:30'],['D2','18:30','06:30']].map(([c,s,e])=>({c,s,e}));
+const SH=p=>p.shifts&&p.shifts.length?p.shifts:DS;
 const MS='<svg viewBox="0 0 120 130" width="96" aria-hidden="true"><path d="M45 18 38 4M75 18 85 4" stroke="#2a7b72" stroke-width="5" stroke-linecap="round"/><rect x="44" y="14" width="32" height="10" rx="3" fill="#f2b03d"/><rect x="26" y="22" width="68" height="82" rx="14" fill="#fffdf6" stroke="#1f6b63" stroke-width="5"/><path d="M26 40v-4a14 14 0 0 1 14-14h40a14 14 0 0 1 14 14v4Z" fill="#2a7b72"/><circle cx="48" cy="66" r="4" fill="#1d2b2a"/><circle cx="72" cy="66" r="4" fill="#1d2b2a"/><circle cx="40" cy="76" r="6" fill="#f6c2c0"/><circle cx="80" cy="76" r="6" fill="#f6c2c0"/><path d="M52 77q8 8 16 0" stroke="#1d2b2a" stroke-width="3" fill="none" stroke-linecap="round"/><rect x="42" y="90" width="36" height="6" rx="3" fill="#f2b03d"/><ellipse cx="60" cy="118" rx="28" ry="4" fill="#0001"/></svg>';
 function cy(){const t=new Date();let y=t.getFullYear(),m=t.getMonth()+1;if(cur.period_start_day==24&&t.getDate()<24){m--;if(!m){m=12;y--}}return y+'-'+String(m).padStart(2,'0')}
 function todayHtml(R){
- const t=new Date(),k=iso(t),w=D[k]||{},sh=cur.shifts||[],v=w.status=='worked'&&w.shift?'s:'+w.shift:['worked','changed'].includes(w.status)?'custom':w.status||'',
+ const t=new Date(),k=iso(t),w=D[k]||{},sh=SH(cur),v=w.status=='worked'&&w.shift?'s:'+w.shift:['worked','changed'].includes(w.status)?'custom':w.status||'',
  ds=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'][t.getDay()]+', '+t.getDate()+'/'+(t.getMonth()+1)+'/'+t.getFullYear();
  return `<div class="c tc">${MS}<h2>Chào ${cur.full_name.split('@')[0]}!</h2><div class=dt>${ds}</div><p class=s>Hôm nay bạn làm ca nào?</p>
- <select id=ts onchange="$('#cu').style.display=this.value=='custom'?'flex':'none'">${opt([['','Chọn ca…'],...sh.map(s=>['s:'+s.c,`Ca ${s.c} · ${s.s}–${s.e}`]),['custom','Đổi ca / tự nhập giờ'],['leave','Nghỉ phép'],['off','Nghỉ'],['absent','Vắng']],v)}</select>
+ <select id=ts onchange="$('#cu').style.display=this.value=='custom'?'flex':'none'">${opt([['','Chọn ca…'],...sh.map(s=>['s:'+s.c,`Ca ${s.c} · ${s.s}–${s.e}`]),['off','Nghỉ'],['custom','Tự nhập giờ']],v)}</select>
  <div id=cu class=r style="display:${v=='custom'?'flex':'none'};justify-content:center;margin-top:8px"><input type=time id=t1 value="${w.start_t||''}"><input type=time id=t2 value="${w.end_t||''}"></div>
  <p><button class=big onclick=send()>Gửi</button></p><div class=s>Lũy kế kỳ lương: <b>${fmt(R.rows.at(-1).cum)} đ</b> · ${R.days}/${R.std} công</div></div>`}
 async function send(){
  const v=$('#ts').value,k=iso(new Date()),w={user_id:cur.id,work_date:k,status:null,shift:null,start_t:null,end_t:null};
  if(!v)return alert('Chọn ca trước nhé');
- if(v.startsWith('s:')){const s=(cur.shifts||[]).find(x=>x.c==v.slice(2));Object.assign(w,{status:'worked',shift:s.c,start_t:s.s,end_t:s.e})}
+ if(v.startsWith('s:')){const s=(SH(cur)).find(x=>x.c==v.slice(2));Object.assign(w,{status:'worked',shift:s.c,start_t:s.s,end_t:s.e})}
  else if(v=='custom'){if(!$('#t1').value||!$('#t2').value)return alert('Nhập giờ vào và giờ ra');Object.assign(w,{status:'changed',start_t:$('#t1').value,end_t:$('#t2').value})}
  else w.status=v;
  if(ck(await SB.from('work_days').upsert(w)).error)return;
