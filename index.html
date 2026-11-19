@@ -3,18 +3,26 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tính lương theo ca</title>
 <style>
-:root{--bg:#f4f6f5;--fg:#1d2321;--card:#fff;--ac:#0f6b4f;--bd:#d5dbd8}
-@media(prefers-color-scheme:dark){:root{--bg:#141817;--fg:#e6ebe9;--card:#1d2321;--ac:#3dbb8d;--bd:#36403c}}
-body{margin:0;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
-main{max-width:860px;margin:auto;padding:10px}
-.c{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:12px;margin:10px 0}
-input,select,textarea,button{font:inherit;padding:10px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--fg);max-width:100%;box-sizing:border-box}
-button{background:var(--ac);color:var(--bg);border:0;cursor:pointer;font-weight:600}
-button.g{background:none;color:var(--fg);border:1px solid var(--bd)}button.on{outline:2px solid var(--ac)}
-.r{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.d{border-top:1px solid var(--bd);padding:8px 0}
-.n{margin-left:auto;text-align:right;font-weight:600}.s{font-size:13px;opacity:.7}
-table{width:100%;border-collapse:collapse}td{padding:5px 0;border-top:1px solid var(--bd)}td+td{text-align:right}
-textarea{width:100%;min-height:90px}label{display:block;margin:8px 0 2px;font-size:14px}
+:root{--bg:#fbf6e9;--fg:#2c3a38;--card:#fffdf6;--ac:#1f6b63;--bd:#e6dcc0;--or:#f2b03d}
+body{margin:0;font:16px/1.45 'Trebuchet MS','Segoe UI',sans-serif;color:var(--fg);background:var(--bg) repeating-linear-gradient(#0000 0 31px,#e3eaea 31px 32px);border-left:3px solid #f0b8ae}
+main{max-width:560px;margin:auto;padding:12px 14px 40px}
+.c{background:var(--card);border:3px solid var(--bd);border-radius:22px;padding:14px;margin:12px 0}
+.tc{text-align:center}h2,h3{color:var(--ac);margin:.3em 0}
+input,select,textarea{font:inherit;padding:10px 12px;border:2px solid var(--bd);border-radius:14px;background:#fff;color:var(--fg);max-width:100%;box-sizing:border-box}
+select{width:100%;font-size:17px}
+button{font:inherit;font-weight:700;padding:10px 16px;border:2px solid #c98a1c;border-bottom-width:5px;border-radius:999px;background:linear-gradient(#f8c466,var(--or));color:#4a2e00;cursor:pointer}
+button:active{transform:translateY(2px);border-bottom-width:3px}
+button.g{background:#efe7d2;border-color:var(--bd);color:#5d6b68}button.on{background:var(--ac);border-color:#14463f;color:#fff}
+button.big{font-size:20px;padding:12px 60px}
+.dt{font-size:22px;font-weight:700;color:var(--ac)}.num{font-size:40px;font-weight:800;color:var(--ac)}
+.r{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.d{border-top:2px dashed var(--bd);padding:8px 0}
+.n{margin-left:auto;text-align:right;font-weight:700;color:var(--ac)}.s{font-size:14px;color:#6b7a77}
+table{width:100%;border-collapse:collapse}td{padding:6px 0;border-top:2px dashed var(--bd)}td+td{text-align:right}
+textarea{width:100%;min-height:90px}label{display:block;margin:8px 0 2px;font-size:14px;color:#6b7a77}
+.ov{position:fixed;inset:0;background:#2c3a3899;display:grid;place-items:center;z-index:9}
+.pp{background:var(--card);border:4px solid var(--or);border-radius:26px;padding:20px 28px;text-align:center;max-width:320px;animation:pop .5s cubic-bezier(.3,1.5,.5,1)}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+@media(prefers-reduced-motion:reduce){.pp{animation:none}}
 @media print{button,select,input,.np{display:none}}
 </style></head><body><main id="app"></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
@@ -32,7 +40,7 @@ const $=s=>document.querySelector(s),fmt=n=>Math.round(n).toLocaleString('vi-VN'
  mins=t=>{const[a,b]=t.split(':');return +a*60+ +b},DN=['CN','T2','T3','T4','T5','T6','T7'],
  ck=r=>{if(r.error)alert('Lỗi: '+r.error.message);return r},
  opt=(l,s)=>l.map(([v,t])=>`<option value="${v}" ${v==s?'selected':''}>${t}</option>`).join('');
-let me,emps=[],cur,D={},HOL=new Set(),BR=[],ADJ={amount:0,note:''},RS,T='days',ym=iso(new Date()).slice(0,7);
+let me,emps=[],cur,D={},HOL=new Set(),BR=[],ADJ={amount:0,note:''},RS,T='today',ym=iso(new Date()).slice(0,7);
 
 function per(p,ym){const[y,m]=ym.split('-').map(Number),s=p.period_start_day,a=new Date(y,m-1,s),
  b=s==1?new Date(y,m,0):new Date(y,m,s-1),l=[];for(let d=a;d<=b;d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1))l.push(d);return l}
@@ -64,7 +72,7 @@ async function boot(){
  if(SUPABASE_KEY.startsWith('DAN_KHOA')||/[^\x20-\x7E]/.test(SUPABASE_KEY)){$('#app').innerHTML='<div class=c><h3>Chưa cấu hình khóa Supabase</h3><p>Mở index.html, thay DAN_KHOA_ANON_VAO_DAY bằng khóa anon public (chỉ chữ và số, không dấu) rồi lưu lại.</p></div>';return}
  const{data:{session}}=await SB.auth.getSession();if(!session)return login();
  me=(await SB.from('profiles').select('*').eq('id',session.user.id).single()).data;
- emps=me.role=='manager'?(await SB.from('profiles').select('*').order('full_name')).data:[me];cur=emps[0];
+ emps=me.role=='manager'?(await SB.from('profiles').select('*').order('full_name')).data:[me];cur=emps[0];ym=cy();
  HOL=new Set((await SB.from('holidays').select('d')).data.map(x=>x.d));
  BR=(await SB.from('tax_brackets').select('*').order('rate')).data;load();
 }
@@ -74,16 +82,17 @@ async function load(){
   SB.from('adjustments').select('*').eq('user_id',cur.id).eq('ym',ym).maybeSingle()]);
  D={};(d.data||[]).forEach(r=>D[r.work_date]=r);ADJ=a.data||{amount:0,note:''};render();
 }
-function login(){$('#app').innerHTML=`<div class=c><h2>Đăng nhập</h2><div class=r><input id=em type=email placeholder=Email><input id=pw type=password placeholder="Mật khẩu"><button onclick=signin()>Đăng nhập</button></div></div>`}
+function login(){$('#app').innerHTML=`<div class='c tc'>${MS}<h2>Bảng lương vui</h2><p class=s>Đăng nhập để bắt đầu nhé</p><div class=r><input id=em type=email placeholder=Email><input id=pw type=password placeholder="Mật khẩu"><button onclick=signin()>Đăng nhập</button></div></div>`}
 async function signin(){const r=await SB.auth.signInWithPassword({email:$('#em').value,password:$('#pw').value});r.error?alert('Không đăng nhập được: '+r.error.message):boot()}
 async function out(){await SB.auth.signOut();login()}
 
 function render(){
  const M=me.role=='manager',R=RS=calc(cur,per(cur,ym));
- const tabs=[['days','Ngày công'],['sum','Tổng kết'],['img','Lịch ca'],...(M?[['prof','Hồ sơ'],['cfg','Ngày lễ & thuế']]:[])];
- let h=`<div class="c np"><div class=r><b>${me.full_name}</b>${M?`<select onchange="cur=emps[this.value];load()">${emps.map((e,i)=>`<option value=${i} ${e.id==cur.id?'selected':''}>${e.full_name}</option>`).join('')}</select>`:''}
+ const tabs=[['today','Hôm nay'],['days','Ngày công'],['sum','Tổng kết'],['img','Lịch ca'],...(M?[['prof','Hồ sơ'],['cfg','Ngày lễ & thuế']]:[])];
+ let h=`<div class="c np"><div class=r><b>${me.full_name}</b>${M?`<select onchange="cur=emps[this.value];ym=cy();load()">${emps.map((e,i)=>`<option value=${i} ${e.id==cur.id?'selected':''}>${e.full_name}</option>`).join('')}</select>`:''}
  <input type=month value="${ym}" onchange="ym=this.value;load()"><button class=g onclick=out()>Thoát</button></div>
  <div class=r style="margin-top:8px">${tabs.map(([k,t])=>`<button class="${T==k?'on':'g'}" onclick="T='${k}';render()">${t}</button>`).join('')}</div></div>`;
+ if(T=='today')h+=todayHtml(R);
  if(T=='days'){
   h+=`<div class=c><div class=r><b>Lương tạm tính</b><span class=n>${fmt(R.rows.at(-1).cum)} đ</span></div><div class=s>Lương giờ ${fmt(R.hr)} đ · ${R.days}/${R.std} công</div>`+R.rows.map(r=>{
    const w=D[r.k]||{},on=['worked','changed'].includes(w.status);
@@ -135,6 +144,30 @@ function xl(){
  const a=$('#xf').value,b=$('#xt').value,rows=RS.rows.filter(r=>(!a||r.k>=a)&&(!b||r.k<=b)).map(r=>({Ngày:r.k,'Trạng thái':r.st,'Lương ngày':Math.round(r.b),'Lương OT':Math.round(r.o),'Chi tiết OT':r.ot,'Tổng ngày':Math.round(r.pay)}));
  rows.push({Ngày:'Thực lĩnh kỳ',  'Tổng ngày':Math.round(RS.net)});
  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Luong');XLSX.writeFile(wb,`luong-${cur.full_name}-${ym}.xlsx`);
+}
+const MS='<svg viewBox="0 0 120 130" width="96" aria-hidden="true"><path d="M45 18 38 4M75 18 85 4" stroke="#2a7b72" stroke-width="5" stroke-linecap="round"/><rect x="44" y="14" width="32" height="10" rx="3" fill="#f2b03d"/><rect x="26" y="22" width="68" height="82" rx="14" fill="#fffdf6" stroke="#1f6b63" stroke-width="5"/><path d="M26 40v-4a14 14 0 0 1 14-14h40a14 14 0 0 1 14 14v4Z" fill="#2a7b72"/><circle cx="48" cy="66" r="4" fill="#1d2b2a"/><circle cx="72" cy="66" r="4" fill="#1d2b2a"/><circle cx="40" cy="76" r="6" fill="#f6c2c0"/><circle cx="80" cy="76" r="6" fill="#f6c2c0"/><path d="M52 77q8 8 16 0" stroke="#1d2b2a" stroke-width="3" fill="none" stroke-linecap="round"/><rect x="42" y="90" width="36" height="6" rx="3" fill="#f2b03d"/><ellipse cx="60" cy="118" rx="28" ry="4" fill="#0001"/></svg>';
+function cy(){const t=new Date();let y=t.getFullYear(),m=t.getMonth()+1;if(cur.period_start_day==24&&t.getDate()<24){m--;if(!m){m=12;y--}}return y+'-'+String(m).padStart(2,'0')}
+function todayHtml(R){
+ const t=new Date(),k=iso(t),w=D[k]||{},sh=cur.shifts||[],v=w.status=='worked'&&w.shift?'s:'+w.shift:['worked','changed'].includes(w.status)?'custom':w.status||'',
+ ds=['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'][t.getDay()]+', '+t.getDate()+'/'+(t.getMonth()+1)+'/'+t.getFullYear();
+ return `<div class="c tc">${MS}<h2>Chào ${cur.full_name.split('@')[0]}!</h2><div class=dt>${ds}</div><p class=s>Hôm nay bạn làm ca nào?</p>
+ <select id=ts onchange="$('#cu').style.display=this.value=='custom'?'flex':'none'">${opt([['','Chọn ca…'],...sh.map(s=>['s:'+s.c,`Ca ${s.c} · ${s.s}–${s.e}`]),['custom','Đổi ca / tự nhập giờ'],['leave','Nghỉ phép'],['off','Nghỉ'],['absent','Vắng']],v)}</select>
+ <div id=cu class=r style="display:${v=='custom'?'flex':'none'};justify-content:center;margin-top:8px"><input type=time id=t1 value="${w.start_t||''}"><input type=time id=t2 value="${w.end_t||''}"></div>
+ <p><button class=big onclick=send()>Gửi</button></p><div class=s>Lũy kế kỳ lương: <b>${fmt(R.rows.at(-1).cum)} đ</b> · ${R.days}/${R.std} công</div></div>`}
+async function send(){
+ const v=$('#ts').value,k=iso(new Date()),w={user_id:cur.id,work_date:k,status:null,shift:null,start_t:null,end_t:null};
+ if(!v)return alert('Chọn ca trước nhé');
+ if(v.startsWith('s:')){const s=(cur.shifts||[]).find(x=>x.c==v.slice(2));Object.assign(w,{status:'worked',shift:s.c,start_t:s.s,end_t:s.e})}
+ else if(v=='custom'){if(!$('#t1').value||!$('#t2').value)return alert('Nhập giờ vào và giờ ra');Object.assign(w,{status:'changed',start_t:$('#t1').value,end_t:$('#t2').value})}
+ else w.status=v;
+ if(ck(await SB.from('work_days').upsert(w)).error)return;
+ D[k]=w;RS=calc(cur,per(cur,ym));pop(RS.rows.find(x=>x.k==k));
+}
+function pop(r){
+ const o=document.createElement('div');o.className='ov';
+ o.innerHTML=`<div class=pp>${MS}<div class=s>Lương hôm nay</div><div class=num id=cn>0 đ</div><div class=s>${r.ot||'Không có OT'}</div><p>Lũy kế kỳ này: <b>${fmt(r.cum)} đ</b></p><button onclick="this.closest('.ov').remove();render()">Xong</button></div>`;
+ document.body.append(o);const t=Math.round(r.pay),st=performance.now();
+ (function f(n){const p=Math.min(1,(n-st)/900);$('#cn').textContent=fmt(t*p)+' đ';if(p<1)requestAnimationFrame(f)})(st);
 }
 SB.auth.onAuthStateChange(()=>{});boot();
 </script></body></html>
