@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tính lương theo ca</title>
+<style>
+:root{--bg:#f4f6f5;--fg:#1d2321;--card:#fff;--ac:#0f6b4f;--bd:#d5dbd8}
+@media(prefers-color-scheme:dark){:root{--bg:#141817;--fg:#e6ebe9;--card:#1d2321;--ac:#3dbb8d;--bd:#36403c}}
+body{margin:0;font:16px/1.4 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+main{max-width:860px;margin:auto;padding:10px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:12px;margin:10px 0}
+input,select,textarea,button{font:inherit;padding:10px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--fg);max-width:100%;box-sizing:border-box}
+button{background:var(--ac);color:var(--bg);border:0;cursor:pointer;font-weight:600}
+button.g{background:none;color:var(--fg);border:1px solid var(--bd)}button.on{outline:2px solid var(--ac)}
+.r{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.d{border-top:1px solid var(--bd);padding:8px 0}
+.n{margin-left:auto;text-align:right;font-weight:600}.s{font-size:13px;opacity:.7}
+table{width:100%;border-collapse:collapse}td{padding:5px 0;border-top:1px solid var(--bd)}td+td{text-align:right}
+textarea{width:100%;min-height:90px}label{display:block;margin:8px 0 2px;font-size:14px}
+@media print{button,select,input,.np{display:none}}
+</style></head><body><main id="app"></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+// ===== CẤU HÌNH: dán thông tin từ Supabase > Project Settings > API =====
+const SUPABASE_URL='https://rpumybmzumilwrqxaccj.supabase.co';
+const SUPABASE_KEY='DAN_KHOA_ANON_VAO_DAY';
+// Tham số tính lương (theo file Excel)
+const CFG={luongCS:2340000,luongVung:4960000,gtBanThan:15500000,gtNPT:6200000,xh:.08,yt:.015,tn:.01,
+  heSo:{1:1.5,2:2,3:2.7,4:3,5:2.1,6:3.9}};
+const SB=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=s=>document.querySelector(s),fmt=n=>Math.round(n).toLocaleString('vi-VN'),
+ iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
+ mins=t=>{const[a,b]=t.split(':');return +a*60+ +b},DN=['CN','T2','T3','T4','T5','T6','T7'],
+ ck=r=>{if(r.error)alert('Lỗi: '+r.error.message);return r},
+ opt=(l,s)=>l.map(([v,t])=>`<option value="${v}" ${v==s?'selected':''}>${t}</option>`).join('');
+let me,emps=[],cur,D={},HOL=new Set(),BR=[],ADJ={amount:0,note:''},RS,T='days',ym=iso(new Date()).slice(0,7);
+
+function per(p,ym){const[y,m]=ym.split('-').map(Number),s=p.period_start_day,a=new Date(y,m-1,s),
+ b=s==1?new Date(y,m,0):new Date(y,m,s-1),l=[];for(let d=a;d<=b;d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1))l.push(d);return l}
+
+function calc(p,list){
+ const std=p.std_mode=='weekdays'?list.filter(d=>d.getDay()%6).length:26,base=+p.base_salary,hr=Math.round(base/std/8);
+ let days=0,baseP=0,otP=0,cum=0,rows=[];
+ for(const d of list){
+  const k=iso(d),w=D[k]||{},off=(p.weekly_off||[0]).includes(d.getDay()),hl=HOL.has(k),norm=!off&&!hl;
+  let b=0,ot={},pay=0,tag=hl?'Lễ':off?'Nghỉ tuần':'';
+  const work=['worked','changed'].includes(w.status)&&w.start_t&&w.end_t;
+  if((w.status=='leave'||work)&&norm){b=base/std;days++}
+  if(work){let s=mins(w.start_t),e=mins(w.end_t);if(e<=s)e+=1440;let n=0,first=null;
+   for(let t=s;t<e;t++){n++;if(!norm||n>480){const ni=t%1440>=1320||t%1440<360;if(first===null)first=ni;
+    const i=hl?(ni?6:4):off?(ni?3:2):ni?(first?2:5):1;ot[i]=(ot[i]||0)+1}}}
+  const o=Object.entries(ot).reduce((a,[i,m])=>a+m/60*hr*CFG.heSo[i],0);
+  pay=b+o;baseP+=b;otP+=o;cum+=pay;
+  rows.push({k,d,tag,b,o,pay,cum,ot:Object.entries(ot).map(([i,m])=>`OT ${(m/60).toFixed(1)}h×${CFG.heSo[i]}`).join(', '),st:w.status||''});
+ }
+ const fuel=p.fuel_allowance*days/std,W=baseP+fuel,nopBH=std-days<14,
+  xh=nopBH?Math.min(baseP,20*CFG.luongCS)*CFG.xh:0,yt=nopBH?Math.min(baseP,20*CFG.luongCS)*CFG.yt:0,tn=nopBH?Math.min(baseP,20*CFG.luongVung)*CFG.tn:0,
+  X=Math.max(0,W-CFG.gtBanThan-CFG.gtNPT*p.dependents-xh-yt-tn);
+ let tax=0,lo=0;for(const b of BR){const hi=b.upper??Infinity;if(X>lo)tax+=(Math.min(X,hi)-lo)*b.rate;lo=hi}
+ const adj=+ADJ.amount||0;
+ return{rows,std,hr,days,baseP,fuel,otP,W,xh,yt,tn,X,tax,adj,net:W+otP-xh-yt-tn-tax+adj};
+}
+
+async function boot(){
+ if(SUPABASE_KEY.startsWith('DAN_KHOA')||/[^\x20-\x7E]/.test(SUPABASE_KEY)){$('#app').innerHTML='<div class=c><h3>Chưa cấu hình khóa Supabase</h3><p>Mở index.html, thay DAN_KHOA_ANON_VAO_DAY bằng khóa anon public (chỉ chữ và số, không dấu) rồi lưu lại.</p></div>';return}
+ const{data:{session}}=await SB.auth.getSession();if(!session)return login();
+ me=(await SB.from('profiles').select('*').eq('id',session.user.id).single()).data;
+ emps=me.role=='manager'?(await SB.from('profiles').select('*').order('full_name')).data:[me];cur=emps[0];
+ HOL=new Set((await SB.from('holidays').select('d')).data.map(x=>x.d));
+ BR=(await SB.from('tax_brackets').select('*').order('rate')).data;load();
+}
+async function load(){
+ const l=per(cur,ym),[d,a]=await Promise.all([
+  SB.from('work_days').select('*').eq('user_id',cur.id).gte('work_date',iso(l[0])).lte('work_date',iso(l[l.length-1])),
+  SB.from('adjustments').select('*').eq('user_id',cur.id).eq('ym',ym).maybeSingle()]);
+ D={};(d.data||[]).forEach(r=>D[r.work_date]=r);ADJ=a.data||{amount:0,note:''};render();
+}
+function login(){$('#app').innerHTML=`<div class=c><h2>Đăng nhập</h2><div class=r><input id=em type=email placeholder=Email><input id=pw type=password placeholder="Mật khẩu"><button onclick=signin()>Đăng nhập</button></div></div>`}
+async function signin(){const r=await SB.auth.signInWithPassword({email:$('#em').value,password:$('#pw').value});r.error?alert('Không đăng nhập được: '+r.error.message):boot()}
+async function out(){await SB.auth.signOut();login()}
+
+function render(){
+ const M=me.role=='manager',R=RS=calc(cur,per(cur,ym));
+ const tabs=[['days','Ngày công'],['sum','Tổng kết'],['img','Lịch ca'],...(M?[['prof','Hồ sơ'],['cfg','Ngày lễ & thuế']]:[])];
+ let h=`<div class="c np"><div class=r><b>${me.full_name}</b>${M?`<select onchange="cur=emps[this.value];load()">${emps.map((e,i)=>`<option value=${i} ${e.id==cur.id?'selected':''}>${e.full_name}</option>`).join('')}</select>`:''}
+ <input type=month value="${ym}" onchange="ym=this.value;load()"><button class=g onclick=out()>Thoát</button></div>
+ <div class=r style="margin-top:8px">${tabs.map(([k,t])=>`<button class="${T==k?'on':'g'}" onclick="T='${k}';render()">${t}</button>`).join('')}</div></div>`;
+ if(T=='days'){
+  h+=`<div class=c><div class=r><b>Lương tạm tính</b><span class=n>${fmt(R.rows.at(-1).cum)} đ</span></div><div class=s>Lương giờ ${fmt(R.hr)} đ · ${R.days}/${R.std} công</div>`+R.rows.map(r=>{
+   const w=D[r.k]||{},on=['worked','changed'].includes(w.status);
+   return `<div class=d><div class=r><b>${DN[r.d.getDay()]} ${r.d.getDate()}/${r.d.getMonth()+1}</b><span class=s>${r.tag}</span>
+   <select onchange="sd('${r.k}','status',this.value)">${opt([['','—'],['worked','Đúng ca'],['changed','Đổi ca'],['leave','Nghỉ phép'],['off','Nghỉ'],['absent','Vắng']],w.status||'')}</select>
+   ${on?`<select onchange="sd('${r.k}','shift',this.value)">${opt([['','Tự nhập'],...(cur.shifts||[]).map(s=>[s.c,s.c])],w.shift||'')}</select>
+   <input type=time value="${w.start_t||''}" onchange="sd('${r.k}','start_t',this.value)"><input type=time value="${w.end_t||''}" onchange="sd('${r.k}','end_t',this.value)">`:''}
+   <span class=n>${r.pay?fmt(r.pay)+' đ':''}<div class=s>${r.ot}${r.pay?' · lũy kế '+fmt(r.cum):''}</div></span></div></div>`}).join('')+`</div>`;
+ }
+ if(T=='sum'){
+  const L=[['Lương cơ bản theo công',R.baseP],['Phụ cấp xăng',R.fuel],['Lương OT (miễn thuế)',R.otP],['BHXH 8%',-R.xh],['BHYT 1,5%',-R.yt],['BHTN 1%',-R.tn],['Thu nhập tính thuế',R.X],['Thuế TNCN',-R.tax],['Điều chỉnh khác'+(ADJ.note?' ('+ADJ.note+')':''),R.adj]];
+  h+=`<div class=c><table>${L.map(([a,b])=>`<tr><td>${a}<td>${fmt(b)}`).join('')}<tr><td><b>Thực lĩnh</b><td><b>${fmt(R.net)} đ</b></table></div>
+  <div class="c np"><div class=r><input type=date id=xf><input type=date id=xt><button onclick=xl()>Xuất Excel</button><button class=g onclick=print()>Xuất PDF</button></div><div class=s>Để trống = cả kỳ lương. Chọn khoảng ngày để xuất báo cáo tuần.</div>
+  ${M?`<label>Điều chỉnh khác (đoàn phí, thưởng lễ… số âm = trừ)</label><div class=r><input id=aa type=number value="${ADJ.amount||0}"><input id=an placeholder="Ghi chú" value="${ADJ.note||''}"><button onclick=sa()>Lưu</button></div>`:''}</div>`;
+ }
+ if(T=='img')h+=`<div class=c><input type=file accept="image/png" onchange="up(this.files[0])"><div id=il></div></div>`;
+ if(T=='prof'&&M){const p=cur,f=(l,i,v,t='text')=>`<label>${l}</label><input id=${i} type=${t} value="${v??''}">`;
+  h+=`<div class=c>${f('Họ tên','f1',p.full_name)}${f('Lương cơ bản','f2',p.base_salary,'number')}${f('Phụ cấp xăng','f3',p.fuel_allowance,'number')}${f('Số người phụ thuộc','f4',p.dependents,'number')}
+  <label>Ngày công chuẩn</label><select id=f5>${opt([['26','26 ngày'],['weekdays','Số ngày T2–T6 trong kỳ']],p.std_mode)}</select>
+  <label>Kỳ lương</label><select id=f6>${opt([[1,'Từ ngày 1 đến cuối tháng'],[24,'Từ 24 đến 23 tháng sau']],p.period_start_day)}</select>
+  ${f('Ngày nghỉ tuần (0=CN, 6=T7, cách nhau dấu phẩy)','f7',(p.weekly_off||[0]).join(','))}
+  <label>Ca (mỗi dòng: Tên 06:30-14:30)</label><textarea id=f8>${(p.shifts||[]).map(s=>`${s.c} ${s.s}-${s.e}`).join('\n')}</textarea><br><button onclick=sp()>Lưu hồ sơ</button></div>`}
+ if(T=='cfg'&&M)h+=`<div class=c><label>Ngày lễ (mỗi dòng YYYY-MM-DD)</label><textarea id=g1>${[...HOL].sort().join('\n')}</textarea>
+  <label>Biểu thuế TNCN (mỗi dòng: "mức_trên_của_bậc %", bậc cuối ghi "max %", ví dụ 10000000 5)</label><textarea id=g2>${BR.map(b=>`${b.upper??'max'} ${b.rate*100}`).join('\n')}</textarea><br><button onclick=sc()>Lưu</button></div>`;
+ $('#app').innerHTML=h;if(T=='img')imgs();
+}
+async function sd(k,f,v){
+ const w={...(D[k]||{}),[f]:v||null};
+ if(f=='shift'){const s=(cur.shifts||[]).find(x=>x.c==v);if(s){w.start_t=s.s;w.end_t=s.e}}
+ D[k]=w;ck(await SB.from('work_days').upsert({user_id:cur.id,work_date:k,status:w.status,shift:w.shift,start_t:w.start_t,end_t:w.end_t}));render();
+}
+async function sa(){ck(await SB.from('adjustments').upsert({user_id:cur.id,ym,amount:+$('#aa').value,note:$('#an').value}));load()}
+async function sp(){const g=i=>$('#'+i).value,u={full_name:g('f1'),base_salary:+g('f2'),fuel_allowance:+g('f3'),dependents:+g('f4'),std_mode:g('f5'),period_start_day:+g('f6'),
+ weekly_off:g('f7').split(',').map(Number),shifts:g('f8').split('\n').map(l=>l.match(/^(\S+)\s+(\d{1,2}:\d\d)\s*-\s*(\d{1,2}:\d\d)/)).filter(Boolean).map(m=>({c:m[1],s:m[2].padStart(5,'0'),e:m[3].padStart(5,'0')}))};
+ if(!ck(await SB.from('profiles').update(u).eq('id',cur.id)).error){Object.assign(cur,u);load()}}
+async function sc(){
+ const hs=$('#g1').value.split('\n').map(s=>s.trim()).filter(Boolean),bs=$('#g2').value.split('\n').map(l=>l.trim().split(/\s+/)).filter(a=>a.length>1).map(a=>({upper:isNaN(a[0])?null:+a[0],rate:+a[1]/100}));
+ ck(await SB.from('holidays').delete().neq('d','1900-01-01'));if(hs.length)ck(await SB.from('holidays').insert(hs.map(d=>({d}))));
+ ck(await SB.from('tax_brackets').delete().gte('id',0));if(bs.length)ck(await SB.from('tax_brackets').insert(bs));
+ HOL=new Set(hs);BR=bs;load();
+}
+async function up(f){if(!f)return;const p=`${cur.id}/${Date.now()}.png`;ck(await SB.storage.from('schedules').upload(p,f));ck(await SB.from('schedules').insert({user_id:cur.id,path:p}));render()}
+async function imgs(){
+ const l=(await SB.from('schedules').select('*').eq('user_id',cur.id).order('created_at',{ascending:false}).limit(8)).data||[];
+ const u=l.length?(await SB.storage.from('schedules').createSignedUrls(l.map(x=>x.path),3600)).data:[];
+ $('#il').innerHTML=l.map((x,i)=>`<p class=s>${new Date(x.created_at).toLocaleDateString('vi-VN')}</p><img src="${u[i]?.signedUrl}" style="max-width:100%">`).join('')||'<p class=s>Chưa có ảnh. Chọn ảnh PNG lịch ca để tải lên.</p>';
+}
+function xl(){
+ const a=$('#xf').value,b=$('#xt').value,rows=RS.rows.filter(r=>(!a||r.k>=a)&&(!b||r.k<=b)).map(r=>({Ngày:r.k,'Trạng thái':r.st,'Lương ngày':Math.round(r.b),'Lương OT':Math.round(r.o),'Chi tiết OT':r.ot,'Tổng ngày':Math.round(r.pay)}));
+ rows.push({Ngày:'Thực lĩnh kỳ',  'Tổng ngày':Math.round(RS.net)});
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Luong');XLSX.writeFile(wb,`luong-${cur.full_name}-${ym}.xlsx`);
+}
+SB.auth.onAuthStateChange(()=>{});boot();
+</script></body></html>
